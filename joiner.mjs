@@ -4,29 +4,49 @@ import { randomText } from "./utils/randomUtil.mjs";
 
 const gameId = process.argv[2];
 
-const vpnConnector = new VPNConnector();
-
-vpnConnector.on("connected", () => {
-    console.log("VPN connected, joining game...");
-    joinGame();
-});
-
-vpnConnector.on("error", (error) => {
-    console.error("Error connecting to VPN:", error);
-});
-
 async function joinGame() {
+    const vpnConnector = new VPNConnector();
+
+    return new Promise((resolve, reject) => {
+        vpnConnector.once("connected", async () => {
+            console.log("VPN connected, joining game...");
+            try {
+                await joinGameProcess();
+                vpnConnector.disconnect();
+                resolve();
+            } catch (error) {
+                vpnConnector.disconnect();
+                reject(error);
+            }
+        });
+
+        vpnConnector.once("error", (error) => {
+            console.error("Error connecting to VPN:", error);
+            reject(error);
+        });
+
+        vpnConnector.connectToRandomVPN();
+    });
+}
+
+async function joinGameProcess() {
     const browser = await puppeteer.launch({
-        headless: true,
+        headless: false,
     });
     const page = await browser.newPage();
 
-    await page.goto("https://con.onelink.me/kZW6/buosjarv");
+    await delay(500);
+    await page.goto('https://con.onelink.me/kZW6/buosjarv', {
+        waitUntil: 'networkidle2'
+    });
+
     await page.reload();
+
+    await delay(1000);
 
     // Fill username
     await page.waitForSelector("#username");
-    const username="gen_" + randomText(6);
+    const username = "gen_" + randomText(6);
     await page.type("#username", username);
 
     console.log("[con] typing username");
@@ -118,12 +138,10 @@ async function joinGame() {
         }, 2000);
     });
     console.log("[con] choosing random country");
-    await delay(10000);
+    await delay(15000);
     console.log(`[con] Done! ${username}`);
     await browser.close();
 }
-// Start VPN connection and join game
-vpnConnector.connectToRandomVPN();
 
 function delay(time) {
     return new Promise(function (resolve) {
@@ -131,3 +149,16 @@ function delay(time) {
     });
 }
 
+// Main loop
+async function main() {
+    while (true) {
+        try {
+            await joinGame();
+        } catch (error) {
+            console.error("Error during game join process:", error);
+        }
+        console.log("Restarting process...");
+    }
+}
+
+main();

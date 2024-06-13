@@ -20,5 +20,5 @@ export function getRandomFile(files) {
 }
 
 export function getRandomCredentialsFile() {
-    return `creds.txt`;
+    return `credentials.txt`;
 }
